@@ -1,5 +1,5 @@
 import requests
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, request
 
 
 # This is my API to get the total lines of code in my github repository
