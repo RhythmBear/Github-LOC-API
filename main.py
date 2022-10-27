@@ -32,9 +32,18 @@ def get_lines_for_repo(github_account: str, repo_name: str):
 # Flask API_KEY
 app = Flask(__name__)
 
+@app.route("/")
+def home():
+    resp = {'success': False,
+            'message': "Please pass in github username in url e.g https://thisaddress.com/<your-github-username>"}
+    return jsonify(
+        resp
+    )
+
 
 @app.route("/<user>")
 def get_lines(user):
+
     print(request.args)
 
     # Get the names of all the repositories in a github account.
@@ -82,4 +91,4 @@ def get_lines(user):
 
 
 if __name__ == "__main__":
-   app.run()
+   app.run(debug=True, port=80)
