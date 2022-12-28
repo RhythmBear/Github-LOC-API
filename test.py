@@ -1,3 +1,3 @@
-from main import confirm_date
+from main import days_between
 
-print(confirm_date('2022-11-2'))
+print(days_between('2022-11-2'))

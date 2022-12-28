@@ -1,8 +1,8 @@
 import requests
-import pandas as pd
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 from DateTime.DateTime import datetime as dt
+import time
 
 #universal format for date = 'YYYY-MM-DD'
 
@@ -15,7 +15,7 @@ LOC_URL = "https://api.codetabs.com/v1/loc"
 # ------------------- FUNCTIONS -----------------------------------------------------------
 
 
-def confirm_date(last_date: str):
+def days_between(last_date: str):
     """
     This function takes in a date input in the format yyyy-mm-dd and returns the number of days
     between the given date and the current date.
@@ -53,20 +53,6 @@ def get_lines_for_repo(github_account: str, repo_name: str):
     return lines_of_code
 
 
-def create_table():
-    data = {'Username': [],
-            'Lines Of Code': [],
-            'Date Checked': []
-            }
-
-def update_table(name, code_lines, date):
-    data = {'Username': name,
-            'Lines Of Code': code_lines,
-            'Date Checked': date}
-
-
-# ---------------------- DEFINING ROUTES ------------------------------------------------------------
-
 # Flask API_KEY
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///loc_database.db'
@@ -82,8 +68,11 @@ class GithubLines(db.Model):
     lines_of_code = db.Column(db.Integer, nullable=True, unique=False)
     date_updated = db.Column(db.String(25), nullable=False)
 
-#
-db.create_all()
+
+#db.create_all()
+
+# ---------------------- DEFINING ROUTES ------------------------------------------------------------
+
 
 @app.route("/")
 def home():
@@ -94,9 +83,25 @@ def home():
     )
 
 
-@app.route("/<user>")
+@app.route("/<user>", methods=["GET"])
 def get_lines(user):
+    start_time = time.time()
     print(request.args)
+    # Search the Database to check if the data exists there
+    user_repo = GithubLines.query.filter_by(username=user).first()
+
+    if user_repo:
+        print(user_repo)
+        if days_between(user_repo.date_updated) < 30:
+            answer = {
+                'response': f"Successfully Retrieved lines of Code for {user} from cache in {time.time() - start_time}seconds",
+                'Total lines': user_repo.lines_of_code,
+                'Repositories': []
+            }
+            return jsonify(answer)
+
+        # If the user exists and
+
     # Get the names of all the repositories in a github account.
     repo_url = f"https://api.github.com/users/{user}/repos"
 
@@ -116,7 +121,6 @@ def get_lines(user):
     except KeyError or TypeError:
         pass
 
-
     # For each repository in the response, Get the name of the repository and pass it into the get the lines function
     results = {}
     total_lines = 0
@@ -133,11 +137,22 @@ def get_lines(user):
         results[repository_name] = lines_result
 
     answer = {
-        'response': f"Successfully Retrieved lines of Code for {user}",
+        'response': f"Successfully Retrieved lines of Code for {user} in {int(time.time() - start_time)}seconds",
         'Total lines': total_lines,
         'Repositories': results
     }
     print(answer)
+
+    # If Entry is not in the database, Add it and if it is, Append it.
+    if user_repo:
+        user_repo.date_updated = dt.now().date()
+        db.session.commit()
+    else:
+        new_user = GithubLines(username=user,
+                               lines_of_code=total_lines,
+                               date_updated=dt.now().date())
+        db.session.add(new_user)
+        db.session.commit()
 
     return jsonify(
         answer
